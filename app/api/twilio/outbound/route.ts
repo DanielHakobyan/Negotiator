@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'xi-api-key': apiKey
+        'xi-api-key': apiKey as string
       },
       body: JSON.stringify({
         agent_id: agentId,
