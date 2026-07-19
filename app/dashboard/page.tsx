@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [intakeData, setIntakeData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [needsRetry, setNeedsRetry] = useState(false);
   const [bestQuote, setBestQuote] = useState<{ price: number, company: string } | null>(null);
 
   // Company Search State
@@ -116,12 +117,20 @@ export default function Dashboard() {
           localStorage.setItem('negotiator_quotes', JSON.stringify(quotesArray));
         }
         
+        setNeedsRetry(false);
         fetchQuotes(); // Refresh leverage baseline after syncing a new quote
       } else {
-        const detailsStr = typeof data.details === 'object' ? JSON.stringify(data.details) : data.details || '';
-        setCallStatus(`Sync Error: ${data.error} - ${detailsStr}`);
+        if (response.status === 409 || data.error?.includes('still processing')) {
+          setNeedsRetry(true);
+          setCallStatus(`Sync Status: ${data.error}`);
+        } else {
+          setNeedsRetry(false);
+          const detailsStr = typeof data.details === 'object' ? JSON.stringify(data.details) : data.details || '';
+          setCallStatus(`Sync Error: ${data.error} - ${detailsStr}`);
+        }
       }
     } catch (error: any) {
+      setNeedsRetry(false);
       const errStr = error.message || JSON.stringify(error);
       setCallStatus(`Sync Error: ${errStr}`);
     } finally {
@@ -224,9 +233,9 @@ export default function Dashboard() {
               <button 
                 onClick={handleSyncCall}
                 disabled={isProcessing || isSyncing}
-                className="flex-1 py-4 px-6 bg-zinc-800 text-white font-semibold rounded-xl hover:bg-zinc-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 whitespace-nowrap"
+                className={`flex-1 py-4 px-6 font-semibold rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 whitespace-nowrap ${needsRetry ? 'bg-orange-600 hover:bg-orange-500 text-white shadow-orange-600/20' : 'bg-zinc-800 hover:bg-zinc-700 text-white'}`}
               >
-                {isSyncing ? 'Syncing...' : 'SYNC COMPLETED CALL'}
+                {isSyncing ? 'Syncing...' : (needsRetry ? 'RETRY SYNC' : 'SYNC COMPLETED CALL')}
               </button>
             </div>
 

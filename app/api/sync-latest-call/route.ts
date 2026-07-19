@@ -40,22 +40,54 @@ export async function POST(request: Request) {
     }
 
     // 2. Fetch full conversation transcript directly
-    console.log(`[Parse Quote] Fetching transcript from ElevenLabs for conv: ${conversationId}`);
-    const transcriptRes = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
-      headers: { 'xi-api-key': elevenLabsApiKey }
-    });
+    console.log(`[Parse Quote] Target conversation ID: ${conversationId}`);
 
-    if (!transcriptRes.ok) {
-      return NextResponse.json({ error: "Failed to fetch real transcript from ElevenLabs" }, { status: transcriptRes.status });
-    }
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    let transcriptData: any = null;
+    let transcriptArray: any[] = [];
+    let formattedTranscript = "";
+    let callDurationSecs = 0;
 
-    const transcriptData = await transcriptRes.json();
-    const transcriptArray = transcriptData.transcript || [];
-    const formattedTranscript = transcriptArray.map((t: any) => `${t.role.toUpperCase()}: ${t.message}`).join('\n');
-    const callDurationSecs = transcriptData.metadata?.call_duration_secs || 0;
+    // Initial wait before first fetch
+    await sleep(2000);
 
-    if (!formattedTranscript) {
-      return NextResponse.json({ error: "Transcript is empty" }, { status: 400 });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`[Parse Quote] Fetching transcript from ElevenLabs (Attempt ${attempt}/3)`);
+      const transcriptRes = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
+        headers: { 'xi-api-key': elevenLabsApiKey }
+      });
+
+      if (!transcriptRes.ok) {
+        if (attempt === 3) {
+          return NextResponse.json({ error: "Failed to fetch real transcript from ElevenLabs" }, { status: transcriptRes.status });
+        }
+        await sleep(3000);
+        continue;
+      }
+
+      transcriptData = await transcriptRes.json();
+      console.log(`[Parse Quote] Raw ElevenLabs Response (Attempt ${attempt}):\n${JSON.stringify(transcriptData, null, 2)}`);
+
+      transcriptArray = transcriptData.transcript || [];
+      formattedTranscript = transcriptArray.map((t: any) => `${t.role.toUpperCase()}: ${t.message}`).join('\n');
+      callDurationSecs = transcriptData.metadata?.call_duration_secs || 0;
+      
+      const status = transcriptData.status || transcriptData.conversation_status || 'unknown';
+
+      if (!formattedTranscript || (status !== 'done' && status !== 'completed')) {
+        if (attempt < 3) {
+          console.log(`[Parse Quote] Transcript empty or status is '${status}'. Waiting 3s to retry...`);
+          await sleep(3000);
+          continue;
+        } else {
+          console.log(`[Parse Quote] Exhausted retries. Final status: ${status}.`);
+          return NextResponse.json({ error: "Call transcript still processing — try syncing again in a moment" }, { status: 409 });
+        }
+      }
+      
+      // Found valid completed transcript
+      break;
     }
 
     console.log(`[Parse Quote] Extracted transcript length: ${formattedTranscript.length} characters.`);
