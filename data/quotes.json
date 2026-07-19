@@ -1,0 +1,42 @@
+[
+  {
+    "id": "0483e40f-82df-4a24-a7bd-55c308501d3e",
+    "company_name": "XYZ Transportation Company",
+    "total_price": 1000,
+    "fees": [
+      {
+        "name": "fuel",
+        "amount": 0
+      },
+      {
+        "name": "stair charges",
+        "amount": 0
+      }
+    ],
+    "red_flags": [],
+    "conversation_id": "conv_7701kxwaf9s6en49ce65m7yf6872",
+    "call_duration_seconds": 0,
+    "created_at": "2026-07-19T04:40:30.056Z"
+  },
+  {
+    "id": "b5ae6078-affc-428b-b5f0-62806c773f19",
+    "company_name": "XYZ Transportation, Berlin",
+    "total_price": 1000,
+    "fees": [
+      {
+        "name": "fuel",
+        "amount": 0
+      },
+      {
+        "name": "packing materials",
+        "amount": 0
+      }
+    ],
+    "red_flags": [
+      "refused flat rate"
+    ],
+    "conversation_id": "conv_7201kxwby69terss1st1mh4q5wt3",
+    "call_duration_seconds": 141,
+    "created_at": "2026-07-19T05:02:57.611Z"
+  }
+]
