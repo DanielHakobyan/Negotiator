@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { PhoneCall, Loader2, ArrowRight, Activity, Search, MapPin, Star, Plus, Target } from 'lucide-react';
+import { PhoneCall, Loader2, ArrowRight, Activity, Search, MapPin, Star, Plus, Target, AlertCircle } from 'lucide-react';
 import { StepIndicator } from '@/components/StepIndicator';
 
 export default function Dashboard() {
@@ -15,6 +15,13 @@ export default function Dashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [needsRetry, setNeedsRetry] = useState(false);
   const [bestQuote, setBestQuote] = useState<{ price: number, company: string } | null>(null);
+
+  // Call Safeguards
+  const [activeCallLock, setActiveCallLock] = useState<Record<string, boolean>>({});
+  const [callTarget, setCallTarget] = useState<string | null>(null);
+
+  // Self Serve Feature
+  const [selfServePhone, setSelfServePhone] = useState('');
 
   // Company Search State
   const [searchLocation, setSearchLocation] = useState('');
@@ -66,13 +73,27 @@ export default function Dashboard() {
     }
   };
 
-  const handleStartCall = async (targetPhone?: string) => {
+  const handleStartCall = async (targetPhone?: string, isSelfServe: boolean = false) => {
+    const lockKey = isSelfServe ? 'self-serve' : (targetPhone || 'default');
+    if (activeCallLock[lockKey]) return; // Prevent double trigger
+    
+    setActiveCallLock(prev => ({ ...prev, [lockKey]: true }));
+    setCallTarget(lockKey);
     setIsProcessing(true);
     setCallStatus(`Initiating secure outbound call ${targetPhone ? `to ${targetPhone}` : ''}...`);
+    
+    // Release the specific button lock after 20 seconds as a safeguard
+    setTimeout(() => {
+      setActiveCallLock(prev => ({ ...prev, [lockKey]: false }));
+    }, 20000);
+
     try {
       const payload = intakeData ? { ...intakeData } : {};
       if (targetPhone) {
         payload.to_number = targetPhone;
+      }
+      if (isSelfServe) {
+        payload.is_self_serve = true;
       }
       
       if (bestQuote) {
@@ -96,6 +117,7 @@ export default function Dashboard() {
       setCallStatus(`Error: ${errStr}`);
     } finally {
       setIsProcessing(false);
+      setCallTarget(null);
     }
   };
 
@@ -190,6 +212,15 @@ export default function Dashboard() {
           <p className="text-zinc-400 mt-2">Job spec locked. Ready to dispatch our AI to negotiate on your behalf.</p>
         </header>
 
+        {/* Live Warning Banner */}
+        <div className="mb-8 p-6 bg-amber-900/10 border-2 border-amber-500/40 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-4 text-amber-500 shadow-[0_0_30px_-10px_rgba(245,158,11,0.15)]">
+          <AlertCircle className="w-8 h-8 shrink-0 text-amber-500" />
+          <p className="text-sm sm:text-base leading-relaxed">
+            <strong className="text-amber-500 font-bold block mb-1 tracking-wide uppercase text-xs">📞 Live Demo Environment</strong> 
+            Buttons here trigger REAL phone calls. Only click &apos;Call Custom Dev Entry&apos; — that&apos;s the number we&apos;ve pre-configured for testing. Want to experience it yourself? Scroll down to enter your own phone number and get a live demo call.
+          </p>
+        </div>
+
         {bestQuote && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
@@ -224,13 +255,13 @@ export default function Dashboard() {
             <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md justify-center">
               <button 
                 onClick={() => handleStartCall()}
-                disabled={isProcessing || isSyncing}
-                className="flex-1 py-4 px-6 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 whitespace-nowrap"
+                disabled={isProcessing || isSyncing || activeCallLock['default']}
+                className="flex-1 py-4 px-6 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 whitespace-nowrap flex items-center justify-center gap-2"
               >
-                {isProcessing ? 'Dispatching...' : 'TEST DIRECT CALL'}
+                {activeCallLock['default'] ? 'Calling...' : 'TEST DIRECT CALL'}
               </button>
               
-              <button 
+              <button  
                 onClick={handleSyncCall}
                 disabled={isProcessing || isSyncing}
                 className={`flex-1 py-4 px-6 font-semibold rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 whitespace-nowrap ${needsRetry ? 'bg-orange-600 hover:bg-orange-500 text-white shadow-orange-600/20' : 'bg-zinc-800 hover:bg-zinc-700 text-white'}`}
@@ -339,11 +370,11 @@ export default function Dashboard() {
                   
                   <button 
                     onClick={() => handleStartCall(company.phone)}
-                    disabled={isProcessing}
-                    className="shrink-0 px-5 py-2.5 bg-zinc-800 hover:bg-indigo-600 text-white font-medium rounded-lg transition-all flex items-center gap-2"
+                    disabled={isProcessing || activeCallLock[company.phone]}
+                    className="shrink-0 px-5 py-2.5 bg-zinc-800 hover:bg-indigo-600 text-white font-medium rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     <PhoneCall className="w-4 h-4" />
-                    Call This Company
+                    {activeCallLock[company.phone] ? 'Calling...' : 'Call This Company'}
                   </button>
                 </div>
               ))}
@@ -353,6 +384,40 @@ export default function Dashboard() {
                   Search a city above to find real companies, or use the dev override to add your own phone number.
                 </div>
               )}
+            </div>
+          </motion.div>
+
+          {/* Self-Serve Call Feature */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="border-2 border-indigo-500/30 rounded-2xl p-8 bg-gradient-to-br from-indigo-900/10 to-zinc-950 shadow-xl"
+          >
+            <div className="text-center max-w-lg mx-auto">
+              <h3 className="text-2xl font-bold mb-3 text-white">Want a live call yourself?</h3>
+              <p className="text-zinc-400 mb-6 text-sm">
+                Enter your phone number below to receive a live, unscripted negotiation call from our AI agent.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input 
+                  type="text" 
+                  value={selfServePhone}
+                  onChange={(e) => setSelfServePhone(e.target.value)}
+                  placeholder="+1234567890 (E.164 format)"
+                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none focus:border-transparent text-white font-mono text-center sm:text-left"
+                />
+                <button 
+                  onClick={() => handleStartCall(selfServePhone, true)}
+                  disabled={isProcessing || isSyncing || !selfServePhone.trim() || activeCallLock['self-serve']}
+                  className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center justify-center gap-2"
+                >
+                  {isProcessing && callTarget === 'self-serve' ? <Loader2 className="w-5 h-5 animate-spin" /> : <PhoneCall className="w-5 h-5" />}
+                  {activeCallLock['self-serve'] ? 'Calling...' : 'Call Me'}
+                </button>
+              </div>
+              <p className="text-xs text-zinc-600 mt-4">Limit 1 call per number every 5 minutes. Total session limits apply.</p>
             </div>
           </motion.div>
         </div>

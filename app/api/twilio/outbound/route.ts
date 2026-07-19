@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 
+// Global In-Memory State for Rate Limiting
+const selfServeRates = new Map<string, number>();
+let totalSelfServeCalls = 0;
+const SESSION_LIMIT = 15;
+const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -28,6 +34,37 @@ export async function POST(request: Request) {
     
     // Explicit phone number passed from the UI call list, falling back to .env
     const targetPhoneNumber = requestBody.to_number || myCellPhoneNumber;
+    const isSelfServe = !!requestBody.is_self_serve;
+
+    // E.164 Validation
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(targetPhoneNumber)) {
+      console.log(`[ElevenLabs Outbound] Invalid phone format: ${targetPhoneNumber}`);
+      return NextResponse.json({ error: "Invalid phone number format. Must be E.164 (e.g. +1234567890)" }, { status: 400 });
+    }
+
+    // Rate Limiting Logic for Self-Serve
+    if (isSelfServe) {
+      if (totalSelfServeCalls >= SESSION_LIMIT) {
+        console.log(`[Rate Limit] Rejected self-serve call to ${targetPhoneNumber} - Session limit reached (${totalSelfServeCalls}/${SESSION_LIMIT})`);
+        return NextResponse.json({ error: "Demo call limit reached for this session — please watch the pre-recorded demo or ask the team for a live walkthrough." }, { status: 429 });
+      }
+
+      const lastCallTime = selfServeRates.get(targetPhoneNumber);
+      const now = Date.now();
+      
+      if (lastCallTime && (now - lastCallTime) < RATE_LIMIT_MS) {
+        console.log(`[Rate Limit] Rejected self-serve call to ${targetPhoneNumber} - Called too recently.`);
+        return NextResponse.json({ error: "This number already received a demo call recently. Please wait a few minutes and try again." }, { status: 429 });
+      }
+
+      // Valid self-serve call
+      totalSelfServeCalls++;
+      selfServeRates.set(targetPhoneNumber, now);
+      console.log(`[Self-Serve] Accepted call to ${targetPhoneNumber} (Session Total: ${totalSelfServeCalls}/${SESSION_LIMIT})`);
+    } else {
+      console.log(`[Internal Demo] Bypassing self-serve rate limits for target ${targetPhoneNumber}`);
+    }
 
     const dynamicVariables = Object.keys(requestBody).length > 0 ? requestBody : {
       customer_name: "Test Customer",
