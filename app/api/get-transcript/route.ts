@@ -31,13 +31,12 @@ export async function GET(request: Request) {
 
     const convData = await convRes.json();
     const transcriptArray = convData.transcript || [];
-    const formattedTranscript = transcriptArray.map((t: any) => `${t.role.toUpperCase()}: ${t.message}`).join('\n');
 
-    if (!formattedTranscript || formattedTranscript.trim() === '') {
+    if (!transcriptArray || transcriptArray.length === 0) {
       return NextResponse.json({ error: "Transcript is empty" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, transcript: formattedTranscript });
+    return NextResponse.json({ success: true, transcript: transcriptArray });
 
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 });

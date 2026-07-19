@@ -27,7 +27,7 @@ export default function ReportPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [openTranscripts, setOpenTranscripts] = useState<Record<string, string | null>>({});
+  const [openTranscripts, setOpenTranscripts] = useState<Record<string, any[] | string | null>>({});
   const [loadingTranscripts, setLoadingTranscripts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -244,10 +244,29 @@ export default function ReportPage() {
 
                 {/* Expandable Transcript */}
                 {isTranscriptOpen && (
-                  <div className="border-t border-zinc-800 bg-zinc-950 p-6">
-                    <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Raw Call Transcript</h5>
-                    <div className="font-mono text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                      {openTranscripts[quote.conversation_id]}
+                  <div className="border-t border-zinc-800 bg-zinc-950/80 p-6">
+                    <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-6">Call Transcript Evidence</h5>
+                    <div className="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                      {Array.isArray(openTranscripts[quote.conversation_id]) ? (
+                        (openTranscripts[quote.conversation_id] as any[]).map((msg, i) => (
+                          <div key={i} className={`flex ${msg.role === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[85%] rounded-2xl px-5 py-3 ${
+                              msg.role === 'agent' 
+                                ? 'bg-indigo-600/20 border border-indigo-500/30 text-indigo-100 rounded-br-sm' 
+                                : 'bg-zinc-800 text-zinc-300 rounded-bl-sm border border-zinc-700/50'
+                            }`}>
+                              <span className={`text-[10px] uppercase font-bold tracking-wider mb-1.5 flex items-center gap-1.5 ${msg.role === 'agent' ? 'text-indigo-400' : 'text-zinc-500'}`}>
+                                {msg.role === 'agent' ? 'AI Negotiator' : quote.company_name}
+                              </span>
+                              <p className="text-sm leading-relaxed">{msg.message}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="font-mono text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                          {openTranscripts[quote.conversation_id] as string}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
