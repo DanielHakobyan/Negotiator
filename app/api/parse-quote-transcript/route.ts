@@ -99,8 +99,6 @@ Return JSON with exactly this structure:
       created_at: new Date().toISOString()
     };
 
-    };
-
     return NextResponse.json({ success: true, quote: newQuote });
 
   } catch (error: any) {
