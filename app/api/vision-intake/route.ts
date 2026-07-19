@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 
 export async function POST(request: Request) {
   try {
@@ -14,15 +15,22 @@ export async function POST(request: Request) {
     console.log(`[Vision API] Received ${frames.length} frames for analysis.`);
 
     // 1 & 2. DEBUG MODE: Save extracted frames to local disk and log sizes
-    const debugDir = path.join(process.cwd(), 'tmp', 'debug-frames');
-    await fs.mkdir(debugDir, { recursive: true });
+    // Only run in development to prevent EROFS errors on Vercel production
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const debugDir = path.join(os.tmpdir(), 'debug-frames');
+        await fs.mkdir(debugDir, { recursive: true });
 
-    for (let i = 0; i < frames.length; i++) {
-      const base64Data = frames[i].replace(/^data:image\/jpeg;base64,/, "");
-      const buffer = Buffer.from(base64Data, 'base64');
-      const filePath = path.join(debugDir, `frame_${i}.jpg`);
-      await fs.writeFile(filePath, buffer);
-      console.log(`[Vision API] Saved debug frame: ${filePath} (Size: ${(buffer.length / 1024).toFixed(2)} KB)`);
+        for (let i = 0; i < frames.length; i++) {
+          const base64Data = frames[i].replace(/^data:image\/jpeg;base64,/, "");
+          const buffer = Buffer.from(base64Data, 'base64');
+          const filePath = path.join(debugDir, `frame_${i}.jpg`);
+          await fs.writeFile(filePath, buffer);
+          console.log(`[Vision API] Saved debug frame: ${filePath} (Size: ${(buffer.length / 1024).toFixed(2)} KB)`);
+        }
+      } catch (err) {
+        console.error("[Vision API] Failed to write debug frames, skipping:", err);
+      }
     }
 
     const apiKey = process.env.OPENAI_API_KEY;

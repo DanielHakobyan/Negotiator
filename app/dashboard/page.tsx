@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { PhoneCall, Loader2, ArrowRight, Activity, Search, MapPin, Star, Plus } from 'lucide-react';
+import { PhoneCall, Loader2, ArrowRight, Activity, Search, MapPin, Star, Plus, Target } from 'lucide-react';
 import { StepIndicator } from '@/components/StepIndicator';
 
 export default function Dashboard() {
@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [intakeData, setIntakeData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [bestQuote, setBestQuote] = useState<{ price: number, company: string } | null>(null);
 
   // Company Search State
   const [searchLocation, setSearchLocation] = useState('');
@@ -38,7 +39,31 @@ export default function Dashboard() {
       setSearchLocation(parts[0].trim());
     }
     setIsLoading(false);
+    fetchQuotes();
   }, [router]);
+
+  const fetchQuotes = async () => {
+    try {
+      const res = await fetch('/api/quotes');
+      const data = await res.json();
+      if (data.data && data.data.length > 0) {
+        // Find the lowest price quote with NO red flags
+        const validQuotes = data.data.filter((q: any) => !q.red_flags || q.red_flags.length === 0);
+        if (validQuotes.length > 0) {
+          const best = validQuotes.reduce((prev: any, current: any) => {
+            return (prev.total_price < current.total_price) ? prev : current;
+          });
+          setBestQuote({ price: best.total_price, company: best.company_name });
+        } else {
+          setBestQuote(null);
+        }
+      } else {
+        setBestQuote(null);
+      }
+    } catch (e) {
+      console.error("Failed to fetch quotes for leverage", e);
+    }
+  };
 
   const handleStartCall = async (targetPhone?: string) => {
     setIsProcessing(true);
@@ -47,6 +72,10 @@ export default function Dashboard() {
       const payload = intakeData ? { ...intakeData } : {};
       if (targetPhone) {
         payload.to_number = targetPhone;
+      }
+      
+      if (bestQuote) {
+        payload.best_quote_so_far = `$${bestQuote.price.toLocaleString()} from ${bestQuote.company}`;
       }
       
       const response = await fetch('/api/twilio/outbound', { 
@@ -77,6 +106,7 @@ export default function Dashboard() {
       
       if (response.ok) {
         setCallStatus(`Sync complete! Quote saved for: ${data.quote?.company_name || 'Unknown Company'}`);
+        fetchQuotes(); // Refresh leverage baseline after syncing a new quote
       } else {
         setCallStatus(`Sync Error: ${data.error} - ${data.details || ''}`);
       }
@@ -138,6 +168,19 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Active Operations</h1>
           <p className="text-zinc-400 mt-2">Job spec locked. Ready to dispatch our AI to negotiate on your behalf.</p>
         </header>
+
+        {bestQuote && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-xl flex items-center justify-center gap-3 text-emerald-400"
+          >
+            <Target className="w-5 h-5 shrink-0" />
+            <p className="font-semibold text-sm sm:text-base">
+              Active Leverage: Using <span className="text-emerald-300 font-bold">${bestQuote.price.toLocaleString()} ({bestQuote.company})</span> as baseline for next call.
+            </p>
+          </motion.div>
+        )}
 
         <div className="grid grid-cols-1 gap-8">
           <motion.div 
