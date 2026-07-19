@@ -42,13 +42,13 @@ export default function Dashboard() {
     fetchQuotes();
   }, [router]);
 
-  const fetchQuotes = async () => {
+  const fetchQuotes = () => {
     try {
-      const res = await fetch('/api/quotes');
-      const data = await res.json();
-      if (data.data && data.data.length > 0) {
+      const stored = localStorage.getItem('negotiator_quotes');
+      const data = stored ? JSON.parse(stored) : [];
+      if (data && data.length > 0) {
         // Find the lowest price quote with NO red flags
-        const validQuotes = data.data.filter((q: any) => !q.red_flags || q.red_flags.length === 0);
+        const validQuotes = data.filter((q: any) => !q.red_flags || q.red_flags.length === 0);
         if (validQuotes.length > 0) {
           const best = validQuotes.reduce((prev: any, current: any) => {
             return (prev.total_price < current.total_price) ? prev : current;
@@ -61,7 +61,7 @@ export default function Dashboard() {
         setBestQuote(null);
       }
     } catch (e) {
-      console.error("Failed to fetch quotes for leverage", e);
+      console.error("Failed to read quotes from localStorage for leverage", e);
     }
   };
 
@@ -91,7 +91,8 @@ export default function Dashboard() {
         setCallStatus(`Error: ${data.error}`);
       }
     } catch (error: any) {
-      setCallStatus(`Error: ${error.message}`);
+      const errStr = error.message || JSON.stringify(error);
+      setCallStatus(`Error: ${errStr}`);
     } finally {
       setIsProcessing(false);
     }
@@ -106,12 +107,23 @@ export default function Dashboard() {
       
       if (response.ok) {
         setCallStatus(`Sync complete! Quote saved for: ${data.quote?.company_name || 'Unknown Company'}`);
+        
+        // Save to browser localStorage directly
+        if (data.quote) {
+          const stored = localStorage.getItem('negotiator_quotes');
+          const quotesArray = stored ? JSON.parse(stored) : [];
+          quotesArray.push(data.quote);
+          localStorage.setItem('negotiator_quotes', JSON.stringify(quotesArray));
+        }
+        
         fetchQuotes(); // Refresh leverage baseline after syncing a new quote
       } else {
-        setCallStatus(`Sync Error: ${data.error} - ${data.details || ''}`);
+        const detailsStr = typeof data.details === 'object' ? JSON.stringify(data.details) : data.details || '';
+        setCallStatus(`Sync Error: ${data.error} - ${detailsStr}`);
       }
     } catch (error: any) {
-      setCallStatus(`Sync Error: ${error.message}`);
+      const errStr = error.message || JSON.stringify(error);
+      setCallStatus(`Sync Error: ${errStr}`);
     } finally {
       setIsSyncing(false);
     }

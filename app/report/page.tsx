@@ -42,7 +42,19 @@ export default function ReportPage() {
 
   const fetchAnalysis = async () => {
     try {
-      const res = await fetch('/api/analyze-quotes', { method: 'POST' });
+      const stored = localStorage.getItem('negotiator_quotes');
+      const quotes = stored ? JSON.parse(stored) : [];
+      
+      if (!quotes || quotes.length === 0) {
+        throw new Error("No quotes available to analyze");
+      }
+
+      const res = await fetch('/api/analyze-quotes', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quotes })
+      });
+      
       const data = await res.json();
       
       if (!res.ok) {
@@ -249,7 +261,7 @@ export default function ReportPage() {
             <button 
               onClick={async () => {
                 if(confirm('Clear all quotes from storage?')) {
-                  await fetch('/api/quotes', { method: 'DELETE' });
+                  localStorage.removeItem('negotiator_quotes');
                   window.location.reload();
                 }
               }}

@@ -3,19 +3,9 @@ import OpenAI from 'openai';
 
 export async function POST(request: Request) {
   try {
-    // 1. Fetch raw quotes from our internal API
-    // Using absolute URL for server-side fetch, falling back to localhost for dev
-    const host = request.headers.get('host');
-    const protocol = host?.includes('localhost') ? 'http' : 'https';
-    const quotesUrl = `${protocol}://${host}/api/quotes`;
-
-    console.log(`[Analyze Quotes] Fetching raw quotes from: ${quotesUrl}`);
-    const quotesRes = await fetch(quotesUrl);
-    if (!quotesRes.ok) {
-      throw new Error(`Failed to fetch quotes: ${quotesRes.statusText}`);
-    }
-    const quotesData = await quotesRes.json();
-    const quotesArray = quotesData.data || [];
+    // 1. Read raw quotes from request body
+    const body = await request.json().catch(() => ({}));
+    const quotesArray = body.quotes || [];
 
     if (!quotesArray || quotesArray.length === 0) {
       return NextResponse.json({ error: "No quotes available to analyze" }, { status: 400 });

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { saveQuote } from '@/lib/quotes';
 import crypto from 'crypto';
 
 export async function POST(request: Request) {
@@ -24,11 +23,14 @@ export async function POST(request: Request) {
     }
 
     // 1. Fetch from ElevenLabs
+    console.log(`[Parse Quote] Fetching transcript from ElevenLabs for conv: ${conversationId}`);
     const convRes = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
       headers: {
         'xi-api-key': elevenLabsApiKey
       }
     });
+
+    console.log(`[Parse Quote] ElevenLabs fetch complete. Status: ${convRes.status}`);
 
     if (!convRes.ok) {
       return NextResponse.json({ error: "Failed to fetch real transcript from ElevenLabs" }, { status: convRes.status });
@@ -40,8 +42,11 @@ export async function POST(request: Request) {
     const callDurationSecs = convData.metadata?.call_duration_secs || 0;
 
     if (!formattedTranscript) {
+      console.log(`[Parse Quote] Transcript is empty or null.`);
       return NextResponse.json({ error: "Transcript is empty" }, { status: 400 });
     }
+
+    console.log(`[Parse Quote] Extracted transcript length: ${formattedTranscript.length} characters.`);
 
     // 2. Extract with OpenAI
     const openai = new OpenAI({ apiKey: openaiApiKey });
@@ -62,14 +67,25 @@ Return JSON with exactly this structure:
   "red_flags": [] // Array of strings (e.g. refused flat rate, extremely low estimate, deposit required)
 }`;
 
+    console.log(`[Parse Quote] Sending prompt to OpenAI:`, prompt);
+
     const openaiRes = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }]
     });
 
     const rawContent = openaiRes.choices[0].message.content || "{}";
-    const cleanJson = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
-    const extractedData = JSON.parse(cleanJson);
+    console.log(`[Parse Quote] Raw OpenAI Response:`, rawContent);
+    
+    let extractedData;
+    try {
+      const cleanJson = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+      extractedData = JSON.parse(cleanJson);
+      console.log(`[Parse Quote] Successfully parsed JSON:`, extractedData);
+    } catch (parseErr: any) {
+      console.error(`[Parse Quote] JSON Parse Error:`, parseErr.message, `Raw Content was:`, rawContent);
+      return NextResponse.json({ error: "Failed to parse OpenAI JSON", details: parseErr.message }, { status: 500 });
+    }
 
     // 3. Save Quote
     const newQuote = {
@@ -83,7 +99,7 @@ Return JSON with exactly this structure:
       created_at: new Date().toISOString()
     };
 
-    await saveQuote(newQuote);
+    };
 
     return NextResponse.json({ success: true, quote: newQuote });
 
