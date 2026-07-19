@@ -7,14 +7,20 @@ export async function POST(request: Request) {
     const agentPhoneNumberId = process.env.ELEVENLABS_AGENT_PHONE_NUMBER_ID;
     const myCellPhoneNumber = process.env.MY_CELL_PHONE_NUMBER;
 
-    if (!apiKey || !agentId || !agentPhoneNumberId || !myCellPhoneNumber) {
-      console.error('[ElevenLabs Outbound] Missing required credentials in .env.local');
-      return NextResponse.json({ error: "Missing configuration" }, { status: 500 });
+    const missingVars = [];
+    if (!apiKey) missingVars.push('ELEVENLABS_API_KEY');
+    if (!agentId) missingVars.push('ELEVENLABS_AGENT_ID');
+    if (!agentPhoneNumberId) missingVars.push('ELEVENLABS_AGENT_PHONE_NUMBER_ID');
+    if (!myCellPhoneNumber) missingVars.push('MY_CELL_PHONE_NUMBER');
+
+    if (missingVars.length > 0) {
+      console.error(`[ElevenLabs Outbound] Missing required environment variables: ${missingVars.join(', ')}`);
+      return NextResponse.json({ error: `Server configuration error. Missing variables: ${missingVars.join(', ')}` }, { status: 500 });
     }
 
-    console.log('[Env Check] ELEVENLABS_API_KEY exists:', !!apiKey);
-    console.log('[Env Check] ELEVENLABS_AGENT_ID:', agentId);
-    console.log('[Env Check] ELEVENLABS_AGENT_PHONE_NUMBER_ID:', agentPhoneNumberId);
+    console.log('[Env Check] ELEVENLABS_API_KEY exists:', !!apiKey, apiKey ? `(Starts with ${apiKey.substring(0, 4)}...)` : '');
+    console.log('[Env Check] ELEVENLABS_AGENT_ID exists:', !!agentId, agentId ? `(Starts with ${agentId.substring(0, 4)}...)` : '');
+    console.log('[Env Check] ELEVENLABS_AGENT_PHONE_NUMBER_ID exists:', !!agentPhoneNumberId, agentPhoneNumberId ? `(Starts with ${agentPhoneNumberId.substring(0, 4)}...)` : '');
     console.log(`[ElevenLabs] Initiating call to ${myCellPhoneNumber}...`);
 
     // Use intake data from the request body

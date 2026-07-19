@@ -15,8 +15,10 @@ export async function GET(request: Request) {
     }
     
     if (!apiKey) {
-      return NextResponse.json({ error: "Missing GOOGLE_PLACES_API_KEY configuration" }, { status: 500 });
+      console.error("[Google Places] Missing GOOGLE_PLACES_API_KEY environment variable");
+      return NextResponse.json({ error: "Server configuration error. Missing GOOGLE_PLACES_API_KEY." }, { status: 500 });
     }
+    console.log('[Env Check] GOOGLE_PLACES_API_KEY exists:', !!apiKey, apiKey ? `(Starts with ${apiKey.substring(0, 4)}...)` : '');
 
     const normalizedLocation = location.toLowerCase().trim();
 
@@ -46,7 +48,7 @@ export async function GET(request: Request) {
     console.log("[Google Places] Raw Response Data:", JSON.stringify(textSearchData, null, 2));
 
     if (!textSearchRes.ok) {
-      console.error("[Google Places] Text search error:", textSearchData);
+      console.error("[Google Places] Text search error. FULL Response:", JSON.stringify(textSearchData, null, 2));
       return NextResponse.json({ error: "Google Places API error", details: textSearchData }, { status: textSearchRes.status });
     }
 
