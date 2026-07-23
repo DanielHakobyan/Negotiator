@@ -1,3 +1,18 @@
+Password for Judges - hnation6$
+
+You can enter your phone number for testing, please use it wisely, my twillio balance is not infinite :)
+
+
+
+
+
+
+
+
+
+
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
