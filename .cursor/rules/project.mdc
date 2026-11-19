@@ -1,0 +1,23 @@
+---
+description: Project rules for the Negotiator assistive calling app
+alwaysApply: true
+---
+
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
+
+# Assistive calling project rules
+
+Negotiator is being converted into an assistive calling app. A person who cannot speak types text to be spoken on a real phone call, reads live captions, and approves AI-drafted replies.
+
+- Never log transcripts, phone numbers, or personal data. Log only IDs and event types.
+- All secrets come from environment variables. Keep `.env.example` up to date. Never commit secrets.
+- Every API route must check the authenticated user and call ownership.
+- Validate all external input with zod.
+- Twilio webhooks must be signature-verified.
+- Nothing AI-written is spoken on a call until the user approves it (except in the future Delegated mode).
+- Accessibility first: large touch targets, labels on every control, screen reader friendly, no microphone required.
+- Make small, reviewable changes and list the files touched at the end of each task.
